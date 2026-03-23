@@ -136,8 +136,21 @@
             <button type="submit" class="btn btn--primary">Отправить заявку</button>
             <button type="button" class="btn btn--ghost" id="sendEstimateBtn">Отправить смету</button>
           </div>
+          <button type="button" class="btn btn--ai btn--full" id="analyzeBtn">
+            <span id="analyzeBtnText">Получить анализ от AI</span>
+          </button>
           <p class="form-message" id="formMessage" aria-live="polite"></p>
         </form>
+      </div>
+    </section>
+
+    <section class="section" id="ai-result-section" style="display:none;">
+      <div class="container">
+        <div class="section__head">
+          <span class="section__eyebrow">Ответ AI-эксперта</span>
+          <h2>Анализ рекомендаций сервиса</h2>
+        </div>
+        <div class="ai-result-card" id="aiResultCard"></div>
       </div>
     </section>
   </main>

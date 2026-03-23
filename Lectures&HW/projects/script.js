@@ -49,6 +49,61 @@ leadForm.addEventListener('submit', (event) => {
   leadForm.reset();
 });
 
+const analyzeBtn = document.getElementById('analyzeBtn');
+const analyzeBtnText = document.getElementById('analyzeBtnText');
+const aiResultSection = document.getElementById('ai-result-section');
+const aiResultCard = document.getElementById('aiResultCard');
+
+analyzeBtn.addEventListener('click', async () => {
+  const formData = new FormData(leadForm);
+  const brand = formData.get('brand')?.toString().trim();
+  const model = formData.get('model')?.toString().trim();
+  const year = formData.get('year')?.toString().trim();
+  const mileage = formData.get('mileage')?.toString().trim();
+  const serviceList = formData.get('serviceList')?.toString().trim();
+
+  if (!brand || !model || !year || !mileage) {
+    showMessage('Заполните данные автомобиля (марка, модель, год, пробег) для анализа.', 'error');
+    return;
+  }
+
+  if (!serviceList) {
+    showMessage('Укажите список рекомендаций сервиса для анализа.', 'error');
+    return;
+  }
+
+  analyzeBtn.disabled = true;
+  analyzeBtnText.textContent = 'Анализирую...';
+  showMessage('', '');
+  aiResultSection.style.display = 'none';
+
+  try {
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: formData.get('name')?.toString().trim(),
+        brand, model, year, mileage, serviceList,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      showMessage(data.error, 'error');
+    } else {
+      aiResultCard.textContent = data.result;
+      aiResultSection.style.display = 'block';
+      aiResultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } catch (err) {
+    showMessage('Не удалось получить ответ от AI. Проверьте соединение.', 'error');
+  } finally {
+    analyzeBtn.disabled = false;
+    analyzeBtnText.textContent = 'Получить анализ от AI';
+  }
+});
+
 const sendEstimateBtn = document.getElementById('sendEstimateBtn');
 
 sendEstimateBtn.addEventListener('click', () => {
