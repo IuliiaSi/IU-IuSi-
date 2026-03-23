@@ -49,6 +49,35 @@ leadForm.addEventListener('submit', (event) => {
   leadForm.reset();
 });
 
+const sendEstimateBtn = document.getElementById('sendEstimateBtn');
+
+sendEstimateBtn.addEventListener('click', () => {
+  const formData = new FormData(leadForm);
+  const name = formData.get('name')?.toString().trim();
+  const email = formData.get('email')?.toString().trim();
+  const brand = formData.get('brand')?.toString().trim();
+  const model = formData.get('model')?.toString().trim();
+  const serviceList = formData.get('serviceList')?.toString().trim();
+
+  if (!name || !email || !brand || !model) {
+    showMessage('Пожалуйста, заполните обязательные поля перед отправкой сметы.', 'error');
+    return;
+  }
+
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!isEmailValid) {
+    showMessage('Укажите корректный email.', 'error');
+    return;
+  }
+
+  showMessage(
+    `Смета по ${brand} ${model} отправлена на ${email}. Ожидайте письмо в ближайшее время.`,
+    'success'
+  );
+
+  leadForm.reset();
+});
+
 function showMessage(message, type) {
   formMessage.textContent = message;
   formMessage.className = `form-message ${type}`;

@@ -132,7 +132,10 @@
             <textarea name="serviceList" rows="5" placeholder="Например: замена масла, фильтров, свечей, промывка системы..."></textarea>
           </label>
 
-          <button type="submit" class="btn btn--primary btn--full">Отправить заявку</button>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary">Отправить заявку</button>
+            <button type="button" class="btn btn--ghost" id="sendEstimateBtn">Отправить смету</button>
+          </div>
           <p class="form-message" id="formMessage" aria-live="polite"></p>
         </form>
       </div>

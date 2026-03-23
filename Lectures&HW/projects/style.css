@@ -308,6 +308,17 @@ button {
   margin-top: 16px;
 }
 
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.form-actions .btn {
+  flex: 1;
+}
+
 .form-message {
   min-height: 24px;
   margin: 14px 0 0;
