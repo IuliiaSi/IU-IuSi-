@@ -1,1 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Анти-развод в сервисе</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="container hero__wrap">
+      <div class="hero__content">
+        <span class="hero__badge">Сервис для владельцев подержанных авто</span>
+        <h1>Проверьте, не переплачиваете ли вы в автосервисе</h1>
+        <p class="hero__text">
+          Получите независимую проверку рекомендаций сервиса: что действительно нужно делать сейчас,
+          что можно отложить, а за что не стоит платить.
+        </p>
+        <div class="hero__actions">
+          <button class="btn btn--primary" id="ctaButton">Проверить рекомендации</button>
+          <a class="btn btn--ghost" href="#how-it-works">Как это работает</a>
+        </div>
+        <ul class="hero__points">
+          <li>Понятная приоритизация работ</li>
+          <li>Опора на регламенты и пробег</li>
+          <li>Помощь перед визитом в сервис</li>
+        </ul>
+      </div>
 
+      <div class="hero__card">
+        <p class="card__label">Что вы получите</p>
+        <div class="result-list">
+          <div class="result-item result-item--danger">
+            <span>Сделать сейчас</span>
+            <strong>Замена масла</strong>
+          </div>
+          <div class="result-item result-item--warn">
+            <span>Можно отложить</span>
+            <strong>Замена свечей</strong>
+          </div>
+          <div class="result-item result-item--ok">
+            <span>Не требуется</span>
+            <strong>Промывка системы</strong>
+          </div>
+        </div>
+        <div class="card__note">
+          <strong>Результат:</strong> меньше лишних работ, меньше стресса, больше уверенности перед сервисом.
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="section" id="how-it-works">
+      <div class="container">
+        <div class="section__head">
+          <span class="section__eyebrow">Как это работает</span>
+          <h2>Три простых шага</h2>
+          <p>Минимум действий для пользователя, максимум ясности перед обслуживанием автомобиля.</p>
+        </div>
+
+        <div class="steps">
+          <article class="step-card">
+            <div class="step-card__number">1</div>
+            <h3>Введите данные автомобиля</h3>
+            <p>Укажите марку, модель, год выпуска и текущий пробег.</p>
+          </article>
+
+          <article class="step-card">
+            <div class="step-card__number">2</div>
+            <h3>Добавьте список работ</h3>
+            <p>Вставьте рекомендации сервиса или кратко опишите, что вам предложили сделать.</p>
+          </article>
+
+          <article class="step-card">
+            <div class="step-card__number">3</div>
+            <h3>Получите второе мнение</h3>
+            <p>Узнайте, какие работы действительно нужны сейчас, а что можно отложить.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--accent" id="lead-form-section">
+      <div class="container form-block">
+        <div class="form-block__content">
+          <span class="section__eyebrow">Форма заявки</span>
+          <h2>Оставьте данные для проверки</h2>
+          <p>
+            Заполните форму, и мы подготовим для вас предварительную оценку работ по вашему автомобилю.
+          </p>
+        </div>
+
+        <form class="lead-form" id="leadForm" novalidate>
+          <div class="form-grid">
+            <label>
+              Имя
+              <input type="text" name="name" placeholder="Например, Анна" required />
+            </label>
+
+            <label>
+              Email
+              <input type="email" name="email" placeholder="name@example.com" required />
+            </label>
+
+            <label>
+              Марка
+              <input type="text" name="brand" placeholder="Toyota" required />
+            </label>
+
+            <label>
+              Модель
+              <input type="text" name="model" placeholder="Camry" required />
+            </label>
+
+            <label>
+              Год выпуска
+              <input type="number" name="year" min="1990" max="2026" placeholder="2018" required />
+            </label>
+
+            <label>
+              Текущий пробег, км
+              <input type="number" name="mileage" min="0" placeholder="87000" required />
+            </label>
+          </div>
+
+          <label class="form-full">
+            Что рекомендует сервис?
+            <textarea name="serviceList" rows="5" placeholder="Например: замена масла, фильтров, свечей, промывка системы..."></textarea>
+          </label>
+
+          <button type="submit" class="btn btn--primary btn--full">Отправить заявку</button>
+          <p class="form-message" id="formMessage" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__wrap">
+      <p>Анти-развод в сервисе</p>
+      <p>Независимая помощь перед визитом в автосервис</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
