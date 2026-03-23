@@ -54,6 +54,49 @@ const analyzeBtnText = document.getElementById('analyzeBtnText');
 const aiResultSection = document.getElementById('ai-result-section');
 const aiResultCard = document.getElementById('aiResultCard');
 
+const STORAGE_KEY = 'antiscam_last_analysis';
+
+function saveToStorage(fields, result) {
+  const entry = { fields, result, savedAt: new Date().toLocaleString('ru-RU') };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entry));
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function restoreFields(fields) {
+  Object.entries(fields).forEach(([name, value]) => {
+    const el = leadForm.elements[name];
+    if (el) el.value = value;
+  });
+}
+
+function showSavedResult(entry) {
+  const { fields, result, savedAt } = entry;
+  const heading = `${fields.brand} ${fields.model}, ${fields.year} г., ${fields.mileage} км`;
+  aiResultCard.innerHTML =
+    `<div class="ai-result-meta">Сохранённый результат от ${savedAt} · <strong>${heading}</strong> · <button class="ai-clear-btn" id="clearResultBtn">Очистить</button></div>` +
+    `<div class="ai-result-text">${result.replace(/\n/g, '<br>')}</div>`;
+  aiResultSection.style.display = 'block';
+  document.getElementById('clearResultBtn').addEventListener('click', () => {
+    localStorage.removeItem(STORAGE_KEY);
+    aiResultSection.style.display = 'none';
+    leadForm.reset();
+  });
+}
+
+const saved = loadFromStorage();
+if (saved) {
+  restoreFields(saved.fields);
+  showSavedResult(saved);
+}
+
 analyzeBtn.addEventListener('click', async () => {
   const formData = new FormData(leadForm);
   const brand = formData.get('brand')?.toString().trim();
@@ -92,8 +135,9 @@ analyzeBtn.addEventListener('click', async () => {
     if (data.error) {
       showMessage(data.error, 'error');
     } else {
-      aiResultCard.textContent = data.result;
-      aiResultSection.style.display = 'block';
+      const fields = { brand, model, year, mileage, serviceList };
+      saveToStorage(fields, data.result);
+      showSavedResult({ fields, result: data.result, savedAt: new Date().toLocaleString('ru-RU') });
       aiResultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   } catch (err) {
