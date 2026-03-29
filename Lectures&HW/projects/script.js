@@ -3,10 +3,51 @@ const formSection = document.getElementById('lead-form-section');
 const leadForm = document.getElementById('leadForm');
 const formMessage = document.getElementById('formMessage');
 
+// ─── Step navigation ──────────────────────────────────────────────────────────
+const formStep1 = document.getElementById('formStep1');
+const formStep2 = document.getElementById('formStep2');
+const nextStepBtn = document.getElementById('nextStepBtn');
+const prevStepBtn = document.getElementById('prevStepBtn');
+const stepDots = document.querySelectorAll('.step-dot');
+
+function setStep(step) {
+  if (step === 1) {
+    formStep1.style.display = 'block';
+    formStep2.style.display = 'none';
+  } else {
+    formStep1.style.display = 'none';
+    formStep2.style.display = 'block';
+  }
+  stepDots.forEach((dot, i) => {
+    dot.classList.toggle('active', i < step);
+  });
+}
+
+nextStepBtn.addEventListener('click', () => {
+  const brand = leadForm.elements['brand'].value.trim();
+  const model = leadForm.elements['model'].value.trim();
+  const year = leadForm.elements['year'].value.trim();
+  const mileage = leadForm.elements['mileage'].value.trim();
+
+  if (!brand || !model || !year || !mileage) {
+    alert('Пожалуйста, заполните все поля автомобиля.');
+    return;
+  }
+
+  setStep(2);
+  formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+prevStepBtn.addEventListener('click', () => {
+  setStep(1);
+  formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
 ctaButton.addEventListener('click', () => {
   formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
+// ─── Form submit ──────────────────────────────────────────────────────────────
 leadForm.addEventListener('submit', (event) => {
   event.preventDefault();
 
@@ -47,8 +88,10 @@ leadForm.addEventListener('submit', (event) => {
   );
 
   leadForm.reset();
+  setStep(1);
 });
 
+// ─── AI analysis ──────────────────────────────────────────────────────────────
 const analyzeBtn = document.getElementById('analyzeBtn');
 const analyzeBtnText = document.getElementById('analyzeBtnText');
 const aiResultSection = document.getElementById('ai-result-section');
@@ -75,6 +118,7 @@ function restoreFields(fields) {
     const el = leadForm.elements[name];
     if (el) el.value = value;
   });
+  setStep(2);
 }
 
 function showSavedResult(entry) {
@@ -88,6 +132,7 @@ function showSavedResult(entry) {
     localStorage.removeItem(STORAGE_KEY);
     aiResultSection.style.display = 'none';
     leadForm.reset();
+    setStep(1);
   });
 }
 
@@ -148,6 +193,7 @@ analyzeBtn.addEventListener('click', async () => {
   }
 });
 
+// ─── Send estimate ────────────────────────────────────────────────────────────
 const sendEstimateBtn = document.getElementById('sendEstimateBtn');
 
 sendEstimateBtn.addEventListener('click', () => {
@@ -156,7 +202,6 @@ sendEstimateBtn.addEventListener('click', () => {
   const email = formData.get('email')?.toString().trim();
   const brand = formData.get('brand')?.toString().trim();
   const model = formData.get('model')?.toString().trim();
-  const serviceList = formData.get('serviceList')?.toString().trim();
 
   if (!name || !email || !brand || !model) {
     showMessage('Пожалуйста, заполните обязательные поля перед отправкой сметы.', 'error');
@@ -175,8 +220,10 @@ sendEstimateBtn.addEventListener('click', () => {
   );
 
   leadForm.reset();
+  setStep(1);
 });
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function showMessage(message, type) {
   formMessage.textContent = message;
   formMessage.className = `form-message ${type}`;

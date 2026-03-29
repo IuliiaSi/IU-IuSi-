@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Анти-развод в сервисе</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -95,51 +95,69 @@
         </div>
 
         <form class="lead-form" id="leadForm" novalidate>
-          <div class="form-grid">
-            <label>
-              Имя
-              <input type="text" name="name" placeholder="Например, Анна" required />
-            </label>
-
-            <label>
-              Email
-              <input type="email" name="email" placeholder="name@example.com" required />
-            </label>
-
-            <label>
-              Марка
-              <input type="text" name="brand" placeholder="Toyota" required />
-            </label>
-
-            <label>
-              Модель
-              <input type="text" name="model" placeholder="Camry" required />
-            </label>
-
-            <label>
-              Год выпуска
-              <input type="number" name="year" min="1990" max="2026" placeholder="2018" required />
-            </label>
-
-            <label>
-              Текущий пробег, км
-              <input type="number" name="mileage" min="0" placeholder="87000" required />
-            </label>
+          <div class="form-steps-indicator">
+            <div class="step-dot active" data-step="1"></div>
+            <div class="step-line"></div>
+            <div class="step-dot" data-step="2"></div>
           </div>
 
-          <label class="form-full">
-            Что рекомендует сервис?
-            <textarea name="serviceList" rows="5" placeholder="Например: замена масла, фильтров, свечей, промывка системы..."></textarea>
-          </label>
+          <!-- Step 1: Car data -->
+          <div class="form-step" id="formStep1">
+            <p class="step-label">Шаг 1 из 2 · Данные автомобиля</p>
+            <div class="form-grid">
+              <label>
+                Марка
+                <input type="text" name="brand" placeholder="Toyota" required />
+              </label>
 
-          <div class="form-actions">
-            <button type="submit" class="btn btn--primary">Отправить заявку</button>
-            <button type="button" class="btn btn--ghost" id="sendEstimateBtn">Отправить смету</button>
+              <label>
+                Модель
+                <input type="text" name="model" placeholder="Camry" required />
+              </label>
+
+              <label>
+                Год выпуска
+                <input type="number" name="year" min="1990" max="2026" placeholder="2018" required />
+              </label>
+
+              <label>
+                Текущий пробег, км
+                <input type="number" name="mileage" min="0" placeholder="87000" required />
+              </label>
+            </div>
+            <button type="button" class="btn btn--primary btn--full" id="nextStepBtn" style="margin-top:20px;">Далее →</button>
           </div>
-          <button type="button" class="btn btn--ai btn--full" id="analyzeBtn">
-            <span id="analyzeBtnText">Получить анализ от AI</span>
-          </button>
-          <p class="form-message" id="formMessage" aria-live="polite"></p>
+
+          <!-- Step 2: Contact + service list + actions -->
+          <div class="form-step" id="formStep2" style="display:none;">
+            <p class="step-label">Шаг 2 из 2 · Контакты и рекомендации</p>
+            <div class="form-grid">
+              <label>
+                Имя
+                <input type="text" name="name" placeholder="Например, Анна" required />
+              </label>
+
+              <label>
+                Email
+                <input type="email" name="email" placeholder="name@example.com" required />
+              </label>
+            </div>
+
+            <label class="form-full">
+              Что рекомендует сервис?
+              <textarea name="serviceList" rows="5" placeholder="Например: замена масла, фильтров, свечей, промывка системы..."></textarea>
+            </label>
+
+            <button type="button" class="btn btn--ai btn--full" id="analyzeBtn" style="margin-top:16px;">
+              <span id="analyzeBtnText">Получить анализ от AI</span>
+            </button>
+            <div class="form-actions">
+              <button type="submit" class="btn btn--primary">Отправить заявку</button>
+              <button type="button" class="btn btn--ghost" id="sendEstimateBtn">Отправить смету</button>
+            </div>
+            <button type="button" class="btn btn--back" id="prevStepBtn">← Назад</button>
+            <p class="form-message" id="formMessage" aria-live="polite"></p>
+          </div>
         </form>
       </div>
     </section>
