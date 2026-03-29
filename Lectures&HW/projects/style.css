@@ -475,27 +475,34 @@ button {
     --radius: 16px;
   }
 
-  /* Hero — Screen 1: badge + h1 + subtitle + CTA */
+  /* Hero wraps two full screens stacked */
   .hero {
-    padding: 48px 0 40px;
-    min-height: 100svh;
-    display: flex;
-    align-items: center;
+    padding: 0;
+    background:
+      radial-gradient(circle at top right, rgba(37, 99, 235, 0.18), transparent 40%),
+      linear-gradient(160deg, #eff6ff 0%, #f8fafc 60%, #ffffff 100%);
   }
 
   .hero__wrap {
-    gap: 40px;
-  }
-
-  .hero__content {
     display: flex;
     flex-direction: column;
+    gap: 0;
+  }
+
+  /* ── Screen 1: Badge + H1 + subtitle + CTA + bullets ── */
+  .hero__content {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: env(safe-area-inset-top, 0px) 0 40px;
+    padding-top: max(env(safe-area-inset-top, 0px), 48px);
   }
 
   .hero h1 {
     font-size: 34px;
     line-height: 1.08;
-    margin: 14px 0 16px;
+    margin: 14px 0 14px;
   }
 
   .hero__text {
@@ -510,22 +517,54 @@ button {
   }
 
   .hero__points {
-    margin-top: 24px;
+    margin-top: 20px;
     font-size: 15px;
+    gap: 8px;
   }
 
-  /* Hero card — Screen 2: example result */
+  /* ── Screen 2: "Что вы получите" card ── */
   .hero__card {
-    padding: 24px;
-    border-radius: 20px;
+    order: unset;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 0 env(safe-area-inset-bottom, 40px);
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+    border-top: 1px solid rgba(37, 99, 235, 0.12);
+  }
+
+  .hero__card .card__label {
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
   }
 
   .result-item {
-    padding: 14px 16px;
+    padding: 16px 18px;
+    border-radius: 14px;
+  }
+
+  .result-item span {
+    font-size: 13px;
   }
 
   .result-item strong {
-    font-size: 16px;
+    font-size: 17px;
+  }
+
+  .result-list {
+    gap: 12px;
+  }
+
+  .card__note {
+    margin-top: 20px;
+    padding-top: 16px;
+    font-size: 15px;
   }
 
   /* How it works — Screen 3 */
