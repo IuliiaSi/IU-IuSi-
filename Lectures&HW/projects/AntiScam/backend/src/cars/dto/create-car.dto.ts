@@ -1,0 +1,17 @@
+import { IsString, IsNotEmpty, IsNumber } from 'class-validator';
+
+export class CreateCarDto {
+  @IsString()
+  @IsNotEmpty()
+  brand: string;
+
+  @IsString()
+  @IsNotEmpty()
+  model: string;
+
+  @IsNumber()
+  year: number;
+
+  @IsNumber()
+  mileage: number;
+}
