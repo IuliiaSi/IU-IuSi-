@@ -174,11 +174,19 @@ function analyzeJobs(jobNames: string[]): { groups: PriorityGroup[]; summary: st
   return { groups, summary };
 }
 
-function onAnalyze() {
+async function onAnalyze() {
   if (store.selectedJobCount === 0) return;
   const allJobs = store.allSelectedJobs;
   const result = analyzeJobs(allJobs);
   store.setResult(result);
+  await store.saveEntry({
+    userInput: JSON.stringify({
+      source: 'manual',
+      car: store.car,
+      jobs: allJobs,
+    }),
+    aiResponse: JSON.stringify(result),
+  });
   router.push('/analysis');
 }
 </script>

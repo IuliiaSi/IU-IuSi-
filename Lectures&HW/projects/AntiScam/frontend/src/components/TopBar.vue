@@ -7,6 +7,10 @@
     </button>
     <span class="top-bar__brand">{{ brandName }}</span>
     <div class="top-bar__spacer" />
+    <span v-if="userEmail" class="top-bar__email">{{ userEmail }}</span>
+    <button v-if="showLogout" class="top-bar__logout" @click="$emit('logout')">
+      Выйти
+    </button>
   </div>
 </template>
 
@@ -15,10 +19,13 @@ import { productCopy } from '@/data/product-copy';
 
 defineProps<{
   showBack?: boolean;
+  showLogout?: boolean;
+  userEmail?: string;
 }>();
 
 defineEmits<{
   back: [];
+  logout: [];
 }>();
 
 const brandName = productCopy.brandName;
@@ -67,5 +74,23 @@ const brandName = productCopy.brandName;
 
 .top-bar__spacer {
   flex: 1;
+}
+
+.top-bar__email {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-right: 8px;
+}
+
+.top-bar__logout {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--secondary);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
 }
 </style>

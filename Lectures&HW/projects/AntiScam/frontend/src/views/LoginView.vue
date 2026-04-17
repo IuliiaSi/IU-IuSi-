@@ -7,128 +7,150 @@
       <p class="body-md login__subtitle">{{ copy.login.subtitle }}</p>
 
       <div class="login__form">
-        <div v-if="!store.auth.codeSent" class="login__phone-section">
-          <label class="login__label">Номер телефона</label>
-          <div class="login__input-wrap" :class="{ 'login__input-wrap--focused': phoneFocused }">
+        <div class="login__field">
+          <label class="login__label">{{ copy.login.emailLabel }}</label>
+          <div class="login__input-wrap" :class="{ 'login__input-wrap--focused': focusedField === 'email' }">
             <input
-              ref="phoneInput"
-              class="login__input"
-              type="tel"
-              inputmode="numeric"
-              :placeholder="copy.login.phonePlaceholder"
-              :value="phoneFormat.formatted.value"
-              @input="onPhoneInput"
-              @focus="phoneFocused = true"
-              @blur="phoneFocused = false"
+              v-model="email"
+              class="login__input login__input--compact"
+              type="email"
+              autocomplete="email"
+              :placeholder="copy.login.emailPlaceholder"
+              @focus="focusedField = 'email'"
+              @blur="focusedField = ''"
             />
           </div>
-          <BottomCTA
-            :label="copy.login.sendCode"
-            :disabled="!isPhoneReady"
-            @click="onSendCode"
-          />
         </div>
 
-        <div v-else class="login__code-section">
-          <label class="login__label">{{ copy.login.codeHint }}</label>
-          <div class="login__code-inputs">
+        <div class="login__field">
+          <label class="login__label">{{ copy.login.passwordLabel }}</label>
+          <div class="login__input-wrap" :class="{ 'login__input-wrap--focused': focusedField === 'password' }">
             <input
-              v-for="i in 4"
-              :key="i"
-              :ref="el => codeRefs[i - 1] = el as HTMLInputElement"
-              class="login__code-digit"
-              :class="{ 'login__code-digit--filled': codeDigits[i - 1] }"
-              type="text"
-              inputmode="numeric"
-              maxlength="1"
-              @input="onCodeDigit($event, i - 1)"
-              @keydown="onCodeKeydown($event, i - 1)"
-              @focus="activeCodeIdx = i - 1"
-              @blur="activeCodeIdx = -1"
+              v-model="password"
+              class="login__input login__input--compact"
+              type="password"
+              autocomplete="current-password"
+              :placeholder="copy.login.passwordPlaceholder"
+              @focus="focusedField = 'password'"
+              @blur="focusedField = ''"
             />
           </div>
-          <button class="login__auto-insert" @click="autoInsertCode">
-            {{ copy.login.autoInsert }}
-          </button>
-          <BottomCTA
-            :label="copy.login.continue"
-            :disabled="!isCodeComplete"
-            @click="onVerify"
-          />
         </div>
+
+        <div v-if="isRegisterMode" class="login__field">
+          <label class="login__label">{{ copy.login.nameLabel }}</label>
+          <div class="login__input-wrap" :class="{ 'login__input-wrap--focused': focusedField === 'name' }">
+            <input
+              v-model="name"
+              class="login__input login__input--compact"
+              type="text"
+              autocomplete="name"
+              :placeholder="copy.login.namePlaceholder"
+              @focus="focusedField = 'name'"
+              @blur="focusedField = ''"
+            />
+          </div>
+        </div>
+
+        <p v-if="errorMessage" class="login__message login__message--error">{{ errorMessage }}</p>
+        <p v-if="successMessage" class="login__message login__message--success">{{ successMessage }}</p>
+
+        <BottomCTA
+          :label="isRegisterMode ? copy.login.register : copy.login.login"
+          :disabled="!isFormValid || submitting"
+          @click="onSubmit"
+        />
+
+        <button class="login__switch-mode" :disabled="submitting" @click="toggleMode">
+          {{ isRegisterMode ? copy.login.switchToLogin : copy.login.switchToRegister }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app.store';
 import { productCopy as copy } from '@/data/product-copy';
-import { usePhoneFormat } from '@/composables/usePhoneFormat';
 import TopBar from '@/components/TopBar.vue';
 import BottomCTA from '@/components/BottomCTA.vue';
 
 const router = useRouter();
 const store = useAppStore();
-const phoneFormat = usePhoneFormat(store.auth.phone);
-const phoneFocused = ref(false);
-const phoneInput = ref<HTMLInputElement | null>(null);
+const email = ref(store.auth.email);
+const password = ref('');
+const name = ref('');
+const isRegisterMode = ref(false);
+const submitting = ref(false);
+const focusedField = ref('');
+const errorMessage = ref('');
+const successMessage = ref('');
 
-const codeDigits = ref<string[]>(['', '', '', '']);
-const codeRefs = ref<(HTMLInputElement | null)[]>([null, null, null, null]);
-const activeCodeIdx = ref(-1);
+const isEmailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()));
+const isPasswordValid = computed(() => password.value.length >= 6);
+const isFormValid = computed(() => isEmailValid.value && isPasswordValid.value);
 
-const isPhoneReady = computed(() => {
-  const digits = phoneFormat.raw.value.replace(/\D/g, '');
-  return digits.length >= 10;
-});
+async function onSubmit() {
+  if (!isFormValid.value || submitting.value) return;
 
-const isCodeComplete = computed(() => codeDigits.value.every(d => d.length === 1));
+  errorMessage.value = '';
+  successMessage.value = '';
+  submitting.value = true;
 
-function onPhoneInput(e: Event) {
-  const val = (e.target as HTMLInputElement).value;
-  phoneFormat.setRaw(val);
-  store.setPhone(phoneFormat.raw.value);
-}
+  try {
+    const endpoint = isRegisterMode.value ? '/api/auth/register' : '/api/auth/login';
+    const payload = isRegisterMode.value
+      ? { email: email.value.trim(), password: password.value, name: name.value.trim() || undefined }
+      : { email: email.value.trim(), password: password.value };
 
-function onSendCode() {
-  if (!isPhoneReady.value) return;
-  store.sendCode();
-  nextTick(() => codeRefs.value[0]?.focus());
-}
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
-function onCodeDigit(e: Event, idx: number) {
-  const val = (e.target as HTMLInputElement).value.replace(/\D/g, '');
-  codeDigits.value[idx] = val.slice(-1);
-  (e.target as HTMLInputElement).value = codeDigits.value[idx];
+    const data = await response.json();
 
-  if (val && idx < 3) {
-    nextTick(() => codeRefs.value[idx + 1]?.focus());
-  }
-}
+    if (!response.ok) {
+      errorMessage.value = data.message || 'Ошибка авторизации.';
+      return;
+    }
 
-function onCodeKeydown(e: KeyboardEvent, idx: number) {
-  if (e.key === 'Backspace' && !codeDigits.value[idx] && idx > 0) {
-    codeDigits.value[idx - 1] = '';
-    nextTick(() => codeRefs.value[idx - 1]?.focus());
-  }
-}
+    if (isRegisterMode.value) {
+      successMessage.value = data.message || 'Регистрация успешна. Теперь выполните вход.';
+      isRegisterMode.value = false;
+      password.value = '';
+      return;
+    }
 
-function autoInsertCode() {
-  codeDigits.value = ['1', '2', '3', '4'];
-  codeRefs.value.forEach((ref, i) => {
-    if (ref) ref.value = codeDigits.value[i];
-  });
-}
+    const accessToken = data?.accessToken;
+    const refreshToken = data?.refreshToken;
 
-function onVerify() {
-  if (!isCodeComplete.value) return;
-  store.setCode(codeDigits.value.join(''));
-  if (store.verifyCode()) {
+    if (!accessToken || !refreshToken) {
+      errorMessage.value = 'Не удалось получить токены сессии.';
+      return;
+    }
+
+    store.setAuthSession({
+      email: email.value.trim(),
+      accessToken,
+      refreshToken,
+    });
+
     router.push('/car');
+  } catch (_error) {
+    errorMessage.value = 'Сервер недоступен. Проверьте подключение и повторите.';
+  } finally {
+    submitting.value = false;
   }
+}
+
+function toggleMode() {
+  isRegisterMode.value = !isRegisterMode.value;
+  errorMessage.value = '';
+  successMessage.value = '';
 }
 </script>
 
@@ -145,6 +167,7 @@ function onVerify() {
 .login__form {
   display: flex;
   flex-direction: column;
+  gap: 14px;
 }
 
 .login__label {
@@ -155,10 +178,14 @@ function onVerify() {
   display: block;
 }
 
+.login__field {
+  display: flex;
+  flex-direction: column;
+}
+
 .login__input-wrap {
   position: relative;
   padding-bottom: 2px;
-  margin-bottom: 24px;
 }
 
 .login__input-wrap::after {
@@ -188,61 +215,39 @@ function onVerify() {
   letter-spacing: 0.02em;
 }
 
+.login__input--compact {
+  font-size: 18px;
+  font-weight: 500;
+}
+
 .login__input::placeholder {
   color: var(--text-tertiary);
   font-weight: 400;
 }
 
-.login__code-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.login__message {
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
 }
 
-.login__code-section .login__label {
-  align-self: flex-start;
+.login__message--error {
+  color: #c53030;
 }
 
-.login__code-inputs {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  align-self: flex-start;
+.login__message--success {
+  color: var(--secondary);
 }
 
-.login__code-digit {
-  width: 56px;
-  height: 64px;
-  text-align: center;
-  font-size: 28px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--text-primary);
-  background: var(--surface-low);
-  border-radius: var(--radius-md);
-  caret-color: var(--secondary);
-  transition: all var(--duration-fast) var(--ease-out);
-}
-
-.login__code-digit:focus {
-  background: var(--surface-high);
-  box-shadow: 0 0 0 1px rgba(26, 127, 119, 0.4), 0 0 16px rgba(26, 127, 119, 0.12);
-}
-
-.login__code-digit--filled {
-  background: var(--surface-high);
-}
-
-.login__auto-insert {
+.login__switch-mode {
   font-size: 14px;
   color: var(--secondary);
-  padding: 8px 0;
-  margin-bottom: 16px;
-  align-self: flex-start;
+  padding: 6px 0;
+  text-align: center;
   transition: opacity var(--duration-fast) var(--ease-out);
 }
 
-.login__auto-insert:active {
+.login__switch-mode:active {
   opacity: 0.7;
 }
 </style>

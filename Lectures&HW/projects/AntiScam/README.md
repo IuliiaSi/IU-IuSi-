@@ -22,10 +22,12 @@ docker-compose up --build
 ```bash
 cd backend
 npm install
+# optional: copy env template
+cp .env.example .env
 npm run start:dev
 ```
 
-Требуется MongoDB на `localhost:27017`.
+Требуется MongoDB на `localhost:27017` и переменные Supabase для email/password авторизации.
 
 **Frontend:**
 
@@ -148,7 +150,7 @@ http://<IP-компьютера>:8080
 ├── backend/           # NestJS + MongoDB
 │   ├── Dockerfile
 │   └── src/
-│       ├── auth/      # Мок-авторизация по телефону
+│       ├── auth/      # Авторизация (Supabase email/password + legacy mock phone)
 │       ├── cars/      # Профиль автомобиля
 │       └── analysis/  # Анализ списка работ
 └── frontend/          # Vue 3 + Vite + Pinia
@@ -199,3 +201,57 @@ http://<IP-компьютера>:8080
 ## Flow приложения
 
 Welcome → Login → Данные авто → Выбор метода → (Ручной ввод / Upload / Пример) → Анализ → Результат → Paywall
+
+## Auth API (Supabase)
+
+Backend использует Supabase Auth для регистрации и логина по email/password.
+
+Необходимые env в `backend/.env`:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+
+Endpoints:
+
+- `POST /api/auth/register`
+  - body: `{ "email": "user@mail.com", "password": "secret123", "name": "Ivan" }`
+- `POST /api/auth/login`
+  - body: `{ "email": "user@mail.com", "password": "secret123" }`
+- `GET /api/auth/me` (Bearer access token)
+- `POST /api/auth/logout` (Bearer access token)
+
+## Entries (Supabase Table Editor)
+
+Создай таблицу `entries` в Supabase с колонками:
+
+- `id` bigint identity primary key
+- `user_id` uuid not null
+- `user_input` text not null
+- `ai_response` text not null
+- `created_at` timestamptz default now()
+
+Рекомендуемый SQL:
+
+```sql
+create table if not exists public.entries (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  user_input text not null,
+  ai_response text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.entries enable row level security;
+
+create policy "entries_insert_own"
+on public.entries
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "entries_select_own"
+on public.entries
+for select
+to authenticated
+using (auth.uid() = user_id);
+```

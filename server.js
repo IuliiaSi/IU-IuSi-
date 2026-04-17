@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const OpenAI = require('openai');
+const { createClient } = require('@supabase/supabase-js');
 
 const PORT = 5000;
 const HOST = '0.0.0.0';
@@ -11,6 +12,18 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  'https://tvgepqtemmqcactioskm.supabase.co';
+const SUPABASE_ANON_KEY =
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.AI_INTEGRATIONS_SUPABASE_ANON_KEY;
+
+const supabase =
+  SUPABASE_URL && SUPABASE_ANON_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
 
 const mimeTypes = {
   '.html': 'text/html',
@@ -61,6 +74,27 @@ ${serviceList || 'Не указаны'}
     });
 
     const answer = completion.choices[0]?.message?.content || 'Не удалось получить ответ.';
+
+    if (supabase) {
+      const userInput = JSON.stringify({
+        name,
+        brand,
+        model,
+        year,
+        mileage,
+        serviceList,
+      });
+
+      const { error: saveError } = await supabase
+        .from('entries')
+        .insert([{ user_input: userInput, ai_response: answer }]);
+
+      if (saveError) {
+        console.error('Supabase insert error:', saveError);
+      }
+    } else {
+      console.warn('Supabase is not configured. Set SUPABASE_ANON_KEY to save entries.');
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ result: answer }));

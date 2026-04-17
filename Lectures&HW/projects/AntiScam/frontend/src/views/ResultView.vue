@@ -1,9 +1,14 @@
 <template>
   <div class="screen result-screen">
-    <TopBar />
+    <TopBar :user-email="store.auth.email" show-logout @logout="onLogout" />
 
     <div class="screen-content">
       <h1 class="headline-lg result__headline">{{ copy.result.headline }}</h1>
+
+      <div class="result__account">
+        <span class="result__account-label">Вы вошли как</span>
+        <strong class="result__account-email">{{ store.auth.email }}</strong>
+      </div>
 
       <SummaryCard
         :brand="store.car.brand"
@@ -34,6 +39,24 @@
         </svg>
         <span>{{ copy.result.disclaimer }}</span>
       </div>
+
+      <div class="result__entries">
+        <h2 class="result__entries-title">Мои сохраненные entries</h2>
+        <p v-if="store.entries.length === 0" class="result__entries-empty">
+          Записей пока нет.
+        </p>
+        <div v-else class="result__entries-list">
+          <article v-for="entry in store.entries" :key="entry.id" class="result__entry-card">
+            <div class="result__entry-meta">
+              {{ new Date(entry.created_at).toLocaleString('ru-RU') }}
+            </div>
+            <div class="result__entry-content">
+              <p><strong>user_input:</strong> {{ entry.user_input }}</p>
+              <p><strong>ai_response:</strong> {{ entry.ai_response }}</p>
+            </div>
+          </article>
+        </div>
+      </div>
     </div>
 
     <BottomCTA
@@ -46,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app.store';
 import { productCopy as copy } from '@/data/product-copy';
@@ -57,12 +81,22 @@ import BottomCTA from '@/components/BottomCTA.vue';
 const router = useRouter();
 const store = useAppStore();
 
+onMounted(async () => {
+  await store.fetchCurrentUser();
+  await store.fetchEntries();
+});
+
 function onPaywall() {
   router.push('/paywall');
 }
 
 function onLater() {
   // Stay on result screen
+}
+
+async function onLogout() {
+  await store.logout();
+  router.push('/login');
 }
 </script>
 
@@ -73,6 +107,23 @@ function onLater() {
 
 .result__headline {
   margin-bottom: 16px;
+}
+
+.result__account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+
+.result__account-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.result__account-email {
+  font-size: 14px;
+  color: var(--text-primary);
 }
 
 .result__summary {
@@ -122,5 +173,45 @@ function onLater() {
 .result__disclaimer svg {
   flex-shrink: 0;
   margin-top: 1px;
+}
+
+.result__entries {
+  margin-top: 24px;
+}
+
+.result__entries-title {
+  font-size: 15px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.result__entries-empty {
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+.result__entries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result__entry-card {
+  background: var(--surface-low);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.result__entry-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.result__entry-content {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  word-break: break-word;
 }
 </style>

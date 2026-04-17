@@ -115,9 +115,17 @@ function onBack() {
   router.back();
 }
 
-watch(() => sim.phase.value, (phase) => {
+watch(() => sim.phase.value, async (phase) => {
   if (phase === 'success') {
     store.setResult(mockUploadResult);
+    await store.saveEntry({
+      userInput: JSON.stringify({
+        source: 'upload',
+        car: store.car,
+        fileName: sim.fileName.value,
+      }),
+      aiResponse: JSON.stringify(mockUploadResult),
+    });
     setTimeout(() => router.push('/result'), 800);
   }
 });

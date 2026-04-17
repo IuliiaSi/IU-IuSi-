@@ -12,12 +12,20 @@ export interface PriorityGroup {
   items: JobResult[];
 }
 
+export interface EntryRecord {
+  id: number;
+  user_id: string;
+  user_input: string;
+  ai_response: string;
+  created_at: string;
+}
+
 export interface AppState {
   auth: {
-    phone: string;
-    code: string;
+    email: string;
     verified: boolean;
-    codeSent: boolean;
+    accessToken: string | null;
+    refreshToken: string | null;
   };
   car: {
     brand: string;
@@ -37,16 +45,19 @@ export interface AppState {
     groups: PriorityGroup[];
     summary: string;
   } | null;
+  entries: EntryRecord[];
   paywallVisible: boolean;
 }
+
+const AUTH_STORAGE_KEY = 'antiscam_auth_session';
 
 function createInitialState(): AppState {
   return {
     auth: {
-      phone: '',
-      code: '',
+      email: '',
       verified: false,
-      codeSent: false,
+      accessToken: null,
+      refreshToken: null,
     },
     car: {
       brand: '',
@@ -63,6 +74,7 @@ function createInitialState(): AppState {
       progress: 0,
     },
     result: null,
+    entries: [],
     paywallVisible: false,
   };
 }
@@ -84,27 +96,142 @@ export const useAppStore = defineStore('app', {
     },
 
     selectedJobCount: (state): number => state.selectedJobs.length + state.customJobs.length,
+    isAuthenticated: (state): boolean =>
+      Boolean(state.auth.verified && state.auth.accessToken && state.auth.refreshToken),
   },
 
   actions: {
-    setPhone(phone: string) {
-      this.auth.phone = phone;
+    setEmail(email: string) {
+      this.auth.email = email;
     },
 
-    setCode(code: string) {
-      this.auth.code = code;
-    },
-
-    sendCode() {
-      this.auth.codeSent = true;
-    },
-
-    verifyCode(): boolean {
-      if (this.auth.code.length === 4) {
-        this.auth.verified = true;
-        return true;
+    setAuthSession(payload: {
+      email: string;
+      accessToken: string;
+      refreshToken: string;
+    }) {
+      this.auth.email = payload.email;
+      this.auth.accessToken = payload.accessToken;
+      this.auth.refreshToken = payload.refreshToken;
+      this.auth.verified = true;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
       }
-      return false;
+    },
+
+    hydrateAuthSession() {
+      if (typeof window === 'undefined') return;
+      const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!raw) return;
+
+      try {
+        const parsed = JSON.parse(raw) as {
+          email: string;
+          accessToken: string;
+          refreshToken: string;
+        };
+
+        if (parsed.accessToken && parsed.refreshToken) {
+          this.setAuthSession(parsed);
+        }
+      } catch {
+        this.clearAuthSession();
+      }
+    },
+
+    clearAuthSession() {
+      this.auth.email = '';
+      this.auth.accessToken = null;
+      this.auth.refreshToken = null;
+      this.auth.verified = false;
+      this.entries = [];
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+    },
+
+    authHeaders(): Record<string, string> {
+      const token = this.auth.accessToken;
+      if (!token) {
+        return {};
+      }
+
+      return {
+        Authorization: `Bearer ${token}`,
+      };
+    },
+
+    async fetchCurrentUser() {
+      if (!this.auth.accessToken) return null;
+
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          ...this.authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        this.clearAuthSession();
+        return null;
+      }
+
+      const data = await response.json();
+      this.auth.email = data.email || this.auth.email;
+      this.auth.verified = true;
+      return data;
+    },
+
+    async logout() {
+      if (this.auth.accessToken) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            ...this.authHeaders(),
+          },
+        });
+      }
+
+      this.clearAuthSession();
+    },
+
+    async saveEntry(payload: { userInput: string; aiResponse: string }) {
+      if (!this.auth.accessToken) return null;
+
+      const response = await fetch('/api/entries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.authHeaders(),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) return null;
+      const entry = (await response.json()) as EntryRecord;
+      this.entries = [entry, ...this.entries];
+      return entry;
+    },
+
+    async fetchEntries() {
+      if (!this.auth.accessToken) {
+        this.entries = [];
+        return [];
+      }
+
+      const response = await fetch('/api/entries', {
+        headers: {
+          ...this.authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        this.entries = [];
+        return [];
+      }
+
+      const data = (await response.json()) as EntryRecord[];
+      this.entries = data;
+      return data;
     },
 
     setCar(field: string, value: string) {
@@ -156,6 +283,10 @@ export const useAppStore = defineStore('app', {
       this.result = result;
     },
 
+    setEntries(entries: EntryRecord[]) {
+      this.entries = entries;
+    },
+
     showPaywall() {
       this.paywallVisible = true;
     },
@@ -165,7 +296,9 @@ export const useAppStore = defineStore('app', {
     },
 
     reset() {
+      const currentAuth = { ...this.auth };
       Object.assign(this, createInitialState());
+      this.auth = currentAuth;
     },
   },
 });
