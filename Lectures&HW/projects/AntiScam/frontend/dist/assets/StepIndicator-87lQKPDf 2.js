@@ -1,1 +1,0 @@
-import{d as e,c as a,a as s,t as o,o as c,_ as n}from"./index-CabRxLxy.js";const _={class:"step-indicator"},r={class:"step-indicator__text"},p=e({__name:"StepIndicator",props:{label:{}},setup(t){return(i,d)=>(c(),a("div",_,[s("span",r,o(t.label),1)]))}}),m=n(p,[["__scopeId","data-v-f779a50d"]]);export{m as S};

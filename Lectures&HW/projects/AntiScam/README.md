@@ -17,8 +17,14 @@
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
 После этого нажми **Run**.
+
+В production-режиме auth работает в гибридной схеме:
+- frontend логинится в Supabase напрямую (через `supabase-js`);
+- backend остаётся источником проверок доступа для бизнес-эндпоинтов (`entries`, `cars`, `analysis`, `access`).
 
 ### Через Docker (рекомендуемый)
 
@@ -54,6 +60,8 @@ npm run start:dev
 ```bash
 cd frontend
 npm install
+# optional: copy env template
+cp .env.example .env
 npm run dev
 ```
 
@@ -222,23 +230,42 @@ http://<IP-компьютера>:8080
 
 Welcome → Login → Данные авто → Выбор метода → (Ручной ввод / Upload / Пример) → Анализ → Результат → Paywall
 
-## Auth API (Supabase)
+## Auth (Supabase, hybrid mode)
 
-Backend использует Supabase Auth для регистрации и логина по email/password.
+В стандартном user flow frontend использует прямой Supabase Auth (через `@supabase/supabase-js`):
+- login/register выполняются напрямую из клиента;
+- это снижает вероятность общего IP rate-limit bottleneck на backend.
 
-Необходимые env в `backend/.env`:
+Backend auth endpoints сохранены как совместимость/служебный слой:
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
 
+Для frontend auth необходимы:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Для backend auth-проверок необходимы:
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 
-Endpoints:
+На экране login/register добавлен 3-секундный cooldown после неуспешной попытки.
+Если Supabase вернёт `429`, пользователь видит сообщение: `Слишком много попыток. Подождите немного`.
 
-- `POST /api/auth/register`
-  - body: `{ "email": "user@mail.com", "password": "secret123", "name": "Ivan" }`
-- `POST /api/auth/login`
-  - body: `{ "email": "user@mail.com", "password": "secret123" }`
-- `GET /api/auth/me` (Bearer access token)
-- `POST /api/auth/logout` (Bearer access token)
+## Replit production checklist
+
+- Secrets в Replit:
+  - `SUPABASE_URL`
+  - `SUPABASE_ANON_KEY`
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+- Проверь, что frontend auth идёт напрямую в Supabase (без `/api/auth/*` в основном user flow).
+- Проверь, что backend API (`/api/entries`, `/api/cars`, `/api/analysis`, `/api/access`) принимает Bearer token и валидирует права на сервере.
+- Для локального frontend используй `frontend/.env.example` как шаблон.
+
+Технически `.replit` теперь валидирует наличие всех 4 env на старте, чтобы приложение не запускалось в полурабочем состоянии.
+
 
 ## Entries (Supabase Table Editor)
 
@@ -361,3 +388,5 @@ using (auth.uid() = user_id);
 3. Быстро нажать основную кнопку 10-20 раз — действие не должно выполняться чаще 1 раза в 3 секунды.
 4. Нажать основное действие без `Я не робот` — действие должно быть заблокировано.
 5. Подтвердить `Я не робот` и выполнить действие — действие должно работать.
+6. Сделать 5-10 быстрых неуспешных login attempts — UI должен включать cooldown и показывать `Слишком много попыток. Подождите немного` при `429`.
+7. Проверить, что бизнес-эндпоинты backend (`/api/entries`, `/api/cars`, `/api/access`) без валидного Bearer token возвращают отказ.

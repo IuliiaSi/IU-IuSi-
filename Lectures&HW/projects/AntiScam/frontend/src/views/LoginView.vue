@@ -57,7 +57,7 @@
 
         <BottomCTA
           :label="isRegisterMode ? copy.login.register : copy.login.login"
-          :disabled="!isFormValid || submitting"
+          :disabled="!isFormValid || submitting || isCooldownActive"
           @click="onSubmit"
         />
 
@@ -70,12 +70,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app.store';
 import { productCopy as copy } from '@/data/product-copy';
 import TopBar from '@/components/TopBar.vue';
 import BottomCTA from '@/components/BottomCTA.vue';
+import { supabase } from '@/lib/supabase';
 
 const router = useRouter();
 const store = useAppStore();
@@ -87,61 +88,102 @@ const submitting = ref(false);
 const focusedField = ref('');
 const errorMessage = ref('');
 const successMessage = ref('');
+const cooldownMsLeft = ref(0);
+let cooldownTimer: ReturnType<typeof setInterval> | null = null;
 
 const isEmailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()));
 const isPasswordValid = computed(() => password.value.length >= 6);
 const isFormValid = computed(() => isEmailValid.value && isPasswordValid.value);
+const isCooldownActive = computed(() => cooldownMsLeft.value > 0);
+
+function startCooldown() {
+  cooldownMsLeft.value = 3000;
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+  }
+  cooldownTimer = setInterval(() => {
+    cooldownMsLeft.value = Math.max(0, cooldownMsLeft.value - 250);
+    if (cooldownMsLeft.value === 0 && cooldownTimer) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+  }, 250);
+}
+
+function mapAuthErrorMessage(message: string, status?: number) {
+  if (status === 429) {
+    return 'Слишком много попыток. Подождите немного';
+  }
+  if (!message) {
+    return 'Ошибка авторизации.';
+  }
+  return message;
+}
 
 async function onSubmit() {
   if (!isFormValid.value || submitting.value) return;
+  if (isCooldownActive.value) {
+    errorMessage.value = 'Подождите немного';
+    return;
+  }
 
   errorMessage.value = '';
   successMessage.value = '';
   submitting.value = true;
 
   try {
-    const endpoint = isRegisterMode.value ? '/api/auth/register' : '/api/auth/login';
-    const payload = isRegisterMode.value
-      ? { email: email.value.trim(), password: password.value, name: name.value.trim() || undefined }
-      : { email: email.value.trim(), password: password.value };
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      errorMessage.value = data.message || 'Ошибка авторизации.';
-      return;
-    }
+    const normalizedEmail = email.value.trim().toLowerCase();
 
     if (isRegisterMode.value) {
-      successMessage.value = data.message || 'Регистрация успешна. Теперь выполните вход.';
+      const { error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password: password.value,
+        options: {
+          data: name.value.trim() ? { name: name.value.trim() } : undefined,
+        },
+      });
+
+      if (error) {
+        errorMessage.value = mapAuthErrorMessage(error.message, error.status);
+        startCooldown();
+        return;
+      }
+
+      successMessage.value = 'Регистрация успешна. Теперь выполните вход.';
       isRegisterMode.value = false;
       password.value = '';
       return;
     }
 
-    const accessToken = data?.accessToken;
-    const refreshToken = data?.refreshToken;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password: password.value,
+    });
 
+    if (error) {
+      errorMessage.value = mapAuthErrorMessage(error.message, error.status);
+      startCooldown();
+      return;
+    }
+
+    const accessToken = data.session?.access_token;
+    const refreshToken = data.session?.refresh_token;
     if (!accessToken || !refreshToken) {
       errorMessage.value = 'Не удалось получить токены сессии.';
+      startCooldown();
       return;
     }
 
     store.setAuthSession({
-      email: email.value.trim(),
+      email: data.user?.email || normalizedEmail,
       accessToken,
       refreshToken,
     });
-
+    await store.fetchAccessStatus();
     router.push('/car');
   } catch (_error) {
     errorMessage.value = 'Сервер недоступен. Проверьте подключение и повторите.';
+    startCooldown();
   } finally {
     submitting.value = false;
   }
@@ -152,6 +194,13 @@ function toggleMode() {
   errorMessage.value = '';
   successMessage.value = '';
 }
+
+onUnmounted(() => {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+    cooldownTimer = null;
+  }
+});
 </script>
 
 <style scoped>

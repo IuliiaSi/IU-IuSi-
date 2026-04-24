@@ -7,10 +7,22 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/animations.css';
 
-const app = createApp(App);
-const pinia = createPinia();
-app.use(pinia);
-const store = useAppStore(pinia);
-store.hydrateAuthSession();
-app.use(router);
-app.mount('#app');
+async function bootstrap() {
+  const app = createApp(App);
+  const pinia = createPinia();
+  app.use(pinia);
+
+  const store = useAppStore(pinia);
+  try {
+    await store.initAuthFromSupabase();
+  } catch (error) {
+    console.warn('Failed to initialize Supabase auth session:', error);
+  } finally {
+    store.bindSupabaseAuthListener();
+  }
+
+  app.use(router);
+  app.mount('#app');
+}
+
+void bootstrap();

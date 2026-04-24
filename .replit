@@ -24,7 +24,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd \"Lectures&HW/projects/AntiScam/backend\" && ([ -d node_modules ] || npm install) && ([ -f dist/main.js ] || npm run build) && ([ -d ../frontend/dist ] || (cd ../frontend && ([ -d node_modules ] || npm install) && npm run build)) && npm run start:prod"
+args = "([ -n \"$SUPABASE_URL\" ] && [ -n \"$SUPABASE_ANON_KEY\" ] && [ -n \"$VITE_SUPABASE_URL\" ] && [ -n \"$VITE_SUPABASE_ANON_KEY\" ] || (echo \"Missing env: SUPABASE_URL, SUPABASE_ANON_KEY, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY\" && exit 1)) && cd \"Lectures&HW/projects/AntiScam/frontend\" && ([ -d node_modules ] || npm install) && npm run build && cd ../backend && ([ -d node_modules ] || npm install) && ([ -f dist/main.js ] || npm run build) && npm run start:prod"
 waitForPort = 3000
 
 [workflows.workflow.metadata]
@@ -36,4 +36,4 @@ externalPort = 80
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["sh", "-c", "cd \"Lectures&HW/projects/AntiScam/backend\" && ([ -d node_modules ] || npm install) && ([ -f dist/main.js ] || npm run build) && ([ -d ../frontend/dist ] || (cd ../frontend && ([ -d node_modules ] || npm install) && npm run build)) && npm run start:prod"]
+run = ["sh", "-c", "([ -n \"$SUPABASE_URL\" ] && [ -n \"$SUPABASE_ANON_KEY\" ] && [ -n \"$VITE_SUPABASE_URL\" ] && [ -n \"$VITE_SUPABASE_ANON_KEY\" ] || (echo \"Missing env: SUPABASE_URL, SUPABASE_ANON_KEY, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY\" && exit 1)) && cd \"Lectures&HW/projects/AntiScam/frontend\" && ([ -d node_modules ] || npm install) && npm run build && cd ../backend && ([ -d node_modules ] || npm install) && ([ -f dist/main.js ] || npm run build) && npm run start:prod"]

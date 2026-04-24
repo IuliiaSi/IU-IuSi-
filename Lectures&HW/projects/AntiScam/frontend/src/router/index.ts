@@ -20,10 +20,6 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const store = useAppStore();
 
-  if (!store.auth.accessToken) {
-    store.hydrateAuthSession();
-  }
-
   if (store.auth.accessToken && !store.auth.verified) {
     await store.fetchCurrentUser();
   }

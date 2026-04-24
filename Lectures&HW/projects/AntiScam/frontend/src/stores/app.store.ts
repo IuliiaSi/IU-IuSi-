@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 export interface JobResult {
   name: string;
@@ -55,6 +57,7 @@ export interface AppState {
 }
 
 const AUTH_STORAGE_KEY = 'antiscam_auth_session';
+let authSubscriptionBound = false;
 
 function createInitialState(): AppState {
   return {
@@ -151,6 +154,42 @@ export const useAppStore = defineStore('app', {
       }
     },
 
+    applySupabaseSession(session: Session) {
+      this.setAuthSession({
+        email: session.user.email || this.auth.email,
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+      });
+    },
+
+    async initAuthFromSupabase() {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session) {
+        this.clearAuthSession();
+        return null;
+      }
+
+      this.applySupabaseSession(data.session);
+      await this.fetchAccessStatus();
+      return data.session;
+    },
+
+    bindSupabaseAuthListener() {
+      if (authSubscriptionBound) return;
+
+      supabase.auth.onAuthStateChange((_event, session) => {
+        if (!session) {
+          this.clearAuthSession();
+          return;
+        }
+
+        this.applySupabaseSession(session);
+        void this.fetchAccessStatus();
+      });
+
+      authSubscriptionBound = true;
+    },
+
     clearAuthSession() {
       this.auth.email = '';
       this.auth.accessToken = null;
@@ -179,22 +218,19 @@ export const useAppStore = defineStore('app', {
     async fetchCurrentUser() {
       if (!this.auth.accessToken) return null;
 
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          ...this.authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
+      const { data, error } = await supabase.auth.getUser(this.auth.accessToken);
+      if (error || !data.user) {
         this.clearAuthSession();
         return null;
       }
 
-      const data = await response.json();
-      this.auth.email = data.email || this.auth.email;
+      this.auth.email = data.user.email || this.auth.email;
       this.auth.verified = true;
       await this.fetchAccessStatus();
-      return data;
+      return {
+        id: data.user.id,
+        email: data.user.email,
+      };
     },
 
     async fetchAccessStatus() {
@@ -205,36 +241,38 @@ export const useAppStore = defineStore('app', {
         return null;
       }
 
-      const response = await fetch('/api/access/me', {
-        headers: {
-          ...this.authHeaders(),
-        },
-      });
+      try {
+        const response = await fetch('/api/access/me', {
+          headers: {
+            ...this.authHeaders(),
+          },
+        });
 
-      if (!response.ok) {
+        if (!response.ok) {
+          this.access.paid = false;
+          this.access.role = 'user';
+          this.access.loaded = true;
+          return null;
+        }
+
+        const data = await response.json();
+        this.access.paid = Boolean(data?.paid);
+        this.access.role = data?.role === 'admin' ? 'admin' : 'user';
+        this.access.loaded = true;
+        return data;
+      } catch {
         this.access.paid = false;
         this.access.role = 'user';
         this.access.loaded = true;
         return null;
       }
-
-      const data = await response.json();
-      this.access.paid = Boolean(data?.paid);
-      this.access.role = data?.role === 'admin' ? 'admin' : 'user';
-      this.access.loaded = true;
-      return data;
     },
 
     async logout() {
-      if (this.auth.accessToken) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            ...this.authHeaders(),
-          },
-        });
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.warn('Supabase signOut failed:', error.message);
       }
-
       this.clearAuthSession();
     },
 
