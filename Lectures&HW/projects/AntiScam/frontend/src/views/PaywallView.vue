@@ -48,8 +48,7 @@ import BottomCTA from '@/components/BottomCTA.vue';
 const router = useRouter();
 
 function onSubscribe() {
-  // Mock subscription - in real app, this would trigger payment
-  router.push('/result');
+  router.push('/success');
 }
 
 function onLater() {

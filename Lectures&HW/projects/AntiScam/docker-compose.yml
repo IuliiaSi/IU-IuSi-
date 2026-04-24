@@ -1,16 +1,6 @@
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:7
-    container_name: chestnaya-otsenka-mongo
-    ports:
-      - '27017:27017'
-    volumes:
-      - mongo-data:/data/db
-    networks:
-      - app-network
-
   backend:
     build:
       context: ./backend
@@ -19,9 +9,9 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/chestnaya-otsenka
-    depends_on:
-      - mongodb
+      - PORT=3000
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
     networks:
       - app-network
 
@@ -36,9 +26,6 @@ services:
       - backend
     networks:
       - app-network
-
-volumes:
-  mongo-data:
 
 networks:
   app-network:

@@ -1,20 +1,24 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { AuthModule } from './auth/auth.module';
 import { CarsModule } from './cars/cars.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { EntriesModule } from './entries/entries.module';
+import { AccessModule } from './access/access.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    MongooseModule.forRoot(
-      process.env.MONGODB_URI || 'mongodb://localhost:27017/chestnaya-otsenka',
-    ),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
+      exclude: ['/api*'],
+    }),
     AuthModule,
+    AccessModule,
     CarsModule,
     AnalysisModule,
     EntriesModule,

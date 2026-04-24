@@ -80,24 +80,30 @@
           </div>
         </div>
       </div>
+
+      <div class="manual__security">
+        <label class="manual__robot-row">
+          <input v-model="humanConfirmed" type="checkbox" class="manual__robot-checkbox" />
+          <span class="manual__robot-label">Я не робот</span>
+        </label>
+        <p v-if="actionMessage" class="manual__action-message">{{ actionMessage }}</p>
+      </div>
     </div>
 
     <BottomCTA
       :label="`${copy.manual.analyze} (${store.selectedJobCount})`"
-      :disabled="store.selectedJobCount === 0"
+      :disabled="store.selectedJobCount === 0 || submitting || isCooldownActive || !humanConfirmed"
       @click="onAnalyze"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app.store';
 import { productCopy as copy } from '@/data/product-copy';
 import { jobCatalog } from '@/data/job-catalog';
-import { ruleMapping, fallbackRule } from '@/data/rule-mapping';
-import type { PriorityGroup } from '@/stores/app.store';
 import TopBar from '@/components/TopBar.vue';
 import StepIndicator from '@/components/StepIndicator.vue';
 import SearchInput from '@/components/SearchInput.vue';
@@ -107,18 +113,25 @@ const router = useRouter();
 const store = useAppStore();
 const searchQuery = ref('');
 const customInput = ref('');
+const humanConfirmed = ref(false);
+const submitting = ref(false);
+const actionMessage = ref('');
+const cooldownMsLeft = ref(0);
+let cooldownTimer: ReturnType<typeof setInterval> | null = null;
 
 const filteredCategories = computed(() => {
   const q = searchQuery.value.toLowerCase().trim();
   if (!q) return jobCatalog;
 
   return jobCatalog
-    .map(cat => ({
+    .map((cat) => ({
       ...cat,
-      jobs: cat.jobs.filter(j => j.name.toLowerCase().includes(q)),
+      jobs: cat.jobs.filter((j) => j.name.toLowerCase().includes(q)),
     }))
-    .filter(cat => cat.jobs.length > 0);
+    .filter((cat) => cat.jobs.length > 0);
 });
+
+const isCooldownActive = computed(() => cooldownMsLeft.value > 0);
 
 function isSelected(name: string): boolean {
   return store.selectedJobs.includes(name);
@@ -131,64 +144,98 @@ function addCustom() {
   }
 }
 
-function analyzeJobs(jobNames: string[]): { groups: PriorityGroup[]; summary: string } {
-  const groupOrder = [
-    'Обеспечение безопасности',
-    'Критические неисправности',
-    'Профилактическое обслуживание',
-    'Несрочно',
-  ];
+function startCooldown() {
+  cooldownMsLeft.value = 3000;
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+  }
+  cooldownTimer = setInterval(() => {
+    cooldownMsLeft.value = Math.max(0, cooldownMsLeft.value - 250);
+    if (cooldownMsLeft.value === 0 && cooldownTimer) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+  }, 250);
+}
 
-  const groupDescriptions: Record<string, string> = {
-    'Обеспечение безопасности': 'Лучше не откладывать',
-    'Критические неисправности': 'Важно проверить и решить в ближайшее время',
-    'Профилактическое обслуживание': 'Плановые работы',
-    'Несрочно': 'Можно обсудить и не делать сразу',
-  };
-
-  const grouped: Record<string, { name: string; chip: string; explanation: string }[]> = {};
-  groupOrder.forEach(g => { grouped[g] = []; });
-
-  jobNames.forEach(name => {
-    const rule = ruleMapping[name] || fallbackRule;
-    const group = rule.group;
-    if (!grouped[group]) grouped[group] = [];
-    grouped[group].push({
-      name,
-      chip: rule.chip,
-      explanation: rule.explanation,
-    });
-  });
-
-  const groups: PriorityGroup[] = groupOrder
-    .filter(g => grouped[g].length > 0)
-    .map(g => ({
-      name: g,
-      description: groupDescriptions[g],
-      items: grouped[g],
-    }));
-
-  const counts = groups.map(g => `${g.items.length} ${g.description.toLowerCase()}`);
-  const summary = `Разобрали ${jobNames.length} пунктов. ${counts.join(', ')}.`;
-
-  return { groups, summary };
+function normalizeErrorMessage(data: unknown): string {
+  if (!data || typeof data !== 'object') return 'Не удалось выполнить действие';
+  const maybeMessage = (data as { message?: string | string[] }).message;
+  if (Array.isArray(maybeMessage) && maybeMessage.length > 0) {
+    return maybeMessage[0];
+  }
+  if (typeof maybeMessage === 'string') {
+    return maybeMessage;
+  }
+  return 'Не удалось выполнить действие';
 }
 
 async function onAnalyze() {
-  if (store.selectedJobCount === 0) return;
-  const allJobs = store.allSelectedJobs;
-  const result = analyzeJobs(allJobs);
-  store.setResult(result);
-  await store.saveEntry({
-    userInput: JSON.stringify({
-      source: 'manual',
-      car: store.car,
-      jobs: allJobs,
-    }),
-    aiResponse: JSON.stringify(result),
-  });
-  router.push('/analysis');
+  if (store.selectedJobCount === 0 || submitting.value) return;
+
+  if (!humanConfirmed.value) {
+    actionMessage.value = 'Подтвердите, что вы не робот';
+    return;
+  }
+
+  if (isCooldownActive.value) {
+    actionMessage.value = 'Подождите немного';
+    return;
+  }
+
+  submitting.value = true;
+  actionMessage.value = '';
+
+  try {
+    const allJobs = store.allSelectedJobs;
+    const response = await fetch('/api/analysis/manual', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...store.authHeaders(),
+      },
+      body: JSON.stringify({
+        jobs: allJobs,
+        brand: store.car.brand,
+        model: store.car.model,
+        year: Number(store.car.year),
+        mileage: Number(store.car.mileage),
+        humanConfirmed: true,
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      actionMessage.value = response.status === 429 ? 'Подождите немного' : normalizeErrorMessage(data);
+      return;
+    }
+
+    store.setResult(data);
+    await store.saveEntry({
+      userInput: JSON.stringify({
+        source: 'manual',
+        car: store.car,
+        jobs: allJobs,
+      }),
+      aiResponse: JSON.stringify(data),
+    });
+
+    startCooldown();
+    router.push('/analysis');
+  } catch {
+    actionMessage.value = 'Сервер недоступен. Попробуйте позже';
+  } finally {
+    submitting.value = false;
+  }
 }
+
+onUnmounted(() => {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+    cooldownTimer = null;
+  }
+});
 </script>
 
 <style scoped>
@@ -302,6 +349,37 @@ async function onAnalyze() {
   flex-direction: column;
   gap: 24px;
   margin-top: 24px;
+}
+
+.manual__security {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manual__robot-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.manual__robot-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--secondary);
+}
+
+.manual__robot-label {
+  user-select: none;
+}
+
+.manual__action-message {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .manual__category-name {

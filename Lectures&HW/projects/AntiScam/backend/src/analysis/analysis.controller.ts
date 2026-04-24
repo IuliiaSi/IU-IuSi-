@@ -1,13 +1,26 @@
-import { Controller, Post, Get, Body } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
 import { AnalysisService } from './analysis.service';
 import { ManualAnalysisDto } from './dto/manual-analysis.dto';
+import { AuthService } from '../auth/auth.service';
+import { AnalysisCooldownService } from './analysis-cooldown.service';
 
 @Controller('analysis')
 export class AnalysisController {
-  constructor(private readonly analysisService: AnalysisService) {}
+  constructor(
+    private readonly analysisService: AnalysisService,
+    private readonly authService: AuthService,
+    private readonly analysisCooldownService: AnalysisCooldownService,
+  ) {}
 
   @Post('manual')
-  analyzeManual(@Body() dto: ManualAnalysisDto) {
+  async analyzeManual(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() dto: ManualAnalysisDto,
+  ) {
+    const token = this.authService.extractBearerToken(authorization);
+    const user = await this.authService.getCurrentUser(token);
+    const actorKey = `user:${user.id}`;
+    this.analysisCooldownService.enforceCooldown(actorKey);
     return this.analysisService.analyze(dto.jobs, dto.brand, dto.model, dto.year, dto.mileage);
   }
 

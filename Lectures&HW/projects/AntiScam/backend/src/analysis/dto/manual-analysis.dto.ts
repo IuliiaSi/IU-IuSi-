@@ -1,4 +1,4 @@
-import { IsArray, IsString, IsNotEmpty, IsNumber } from 'class-validator';
+import { Equals, IsArray, IsBoolean, IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
 export class ManualAnalysisDto {
   @IsArray()
@@ -18,4 +18,8 @@ export class ManualAnalysisDto {
 
   @IsNumber()
   mileage: number;
+
+  @IsBoolean()
+  @Equals(true, { message: 'Подтвердите, что вы не робот' })
+  humanConfirmed: boolean;
 }

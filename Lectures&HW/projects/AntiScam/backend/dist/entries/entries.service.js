@@ -12,14 +12,33 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.EntriesService = void 0;
 const common_1 = require("@nestjs/common");
 const auth_service_1 = require("../auth/auth.service");
+const access_service_1 = require("../access/access.service");
 let EntriesService = class EntriesService {
-    constructor(authService) {
+    constructor(authService, accessService) {
         this.authService = authService;
+        this.accessService = accessService;
     }
     async create(authorization, dto) {
         const token = this.authService.extractBearerToken(authorization);
         const user = await this.authService.getCurrentUser(token);
+        await this.accessService.requirePaidAccess(authorization);
         const supabase = this.authService.getAuthedClient(token);
+        const { data: latestEntry, error: latestEntryError } = await supabase
+            .from('entries')
+            .select('created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (latestEntryError && latestEntryError.code !== 'PGRST116') {
+            throw new common_1.BadRequestException(latestEntryError.message);
+        }
+        if (latestEntry?.created_at) {
+            const createdAtMs = new Date(latestEntry.created_at).getTime();
+            if (Number.isFinite(createdAtMs) && Date.now() - createdAtMs < 3000) {
+                throw new common_1.HttpException('Подождите немного', common_1.HttpStatus.TOO_MANY_REQUESTS);
+            }
+        }
         const { data, error } = await supabase
             .from('entries')
             .insert([
@@ -39,6 +58,7 @@ let EntriesService = class EntriesService {
     async listMine(authorization) {
         const token = this.authService.extractBearerToken(authorization);
         const user = await this.authService.getCurrentUser(token);
+        await this.accessService.requirePaidAccess(authorization);
         const supabase = this.authService.getAuthedClient(token);
         const { data, error } = await supabase
             .from('entries')
@@ -54,6 +74,7 @@ let EntriesService = class EntriesService {
 exports.EntriesService = EntriesService;
 exports.EntriesService = EntriesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [auth_service_1.AuthService])
+    __metadata("design:paramtypes", [auth_service_1.AuthService,
+        access_service_1.AccessService])
 ], EntriesService);
 //# sourceMappingURL=entries.service.js.map

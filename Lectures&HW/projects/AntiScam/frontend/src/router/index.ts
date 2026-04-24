@@ -13,6 +13,7 @@ const router = createRouter({
     { path: '/analysis', name: 'analysis', component: () => import('@/views/AnalysisView.vue'), meta: { transition: 'fade', requiresAuth: true } },
     { path: '/result', name: 'result', component: () => import('@/views/ResultView.vue'), meta: { transition: 'fade', requiresAuth: true } },
     { path: '/paywall', name: 'paywall', component: () => import('@/views/PaywallView.vue'), meta: { transition: 'slide-up', requiresAuth: true } },
+    { path: '/success', name: 'success', component: () => import('@/views/SuccessView.vue'), meta: { transition: 'fade', requiresAuth: true } },
   ],
 });
 
@@ -25,6 +26,10 @@ router.beforeEach(async (to) => {
 
   if (store.auth.accessToken && !store.auth.verified) {
     await store.fetchCurrentUser();
+  }
+
+  if (store.auth.accessToken && !store.access.loaded) {
+    await store.fetchAccessStatus();
   }
 
   if (to.meta.requiresAuth && !store.isAuthenticated) {

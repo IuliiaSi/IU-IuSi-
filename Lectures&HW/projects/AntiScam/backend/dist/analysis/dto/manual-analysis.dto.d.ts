@@ -4,4 +4,5 @@ export declare class ManualAnalysisDto {
     model: string;
     year: number;
     mileage: number;
+    humanConfirmed: boolean;
 }

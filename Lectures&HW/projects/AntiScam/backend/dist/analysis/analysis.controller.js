@@ -16,11 +16,19 @@ exports.AnalysisController = void 0;
 const common_1 = require("@nestjs/common");
 const analysis_service_1 = require("./analysis.service");
 const manual_analysis_dto_1 = require("./dto/manual-analysis.dto");
+const auth_service_1 = require("../auth/auth.service");
+const analysis_cooldown_service_1 = require("./analysis-cooldown.service");
 let AnalysisController = class AnalysisController {
-    constructor(analysisService) {
+    constructor(analysisService, authService, analysisCooldownService) {
         this.analysisService = analysisService;
+        this.authService = authService;
+        this.analysisCooldownService = analysisCooldownService;
     }
-    analyzeManual(dto) {
+    async analyzeManual(authorization, dto) {
+        const token = this.authService.extractBearerToken(authorization);
+        const user = await this.authService.getCurrentUser(token);
+        const actorKey = `user:${user.id}`;
+        this.analysisCooldownService.enforceCooldown(actorKey);
         return this.analysisService.analyze(dto.jobs, dto.brand, dto.model, dto.year, dto.mileage);
     }
     async analyzeUpload() {
@@ -34,10 +42,11 @@ let AnalysisController = class AnalysisController {
 exports.AnalysisController = AnalysisController;
 __decorate([
     (0, common_1.Post)('manual'),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Headers)('authorization')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [manual_analysis_dto_1.ManualAnalysisDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [String, manual_analysis_dto_1.ManualAnalysisDto]),
+    __metadata("design:returntype", Promise)
 ], AnalysisController.prototype, "analyzeManual", null);
 __decorate([
     (0, common_1.Post)('upload'),
@@ -53,6 +62,8 @@ __decorate([
 ], AnalysisController.prototype, "getExample", null);
 exports.AnalysisController = AnalysisController = __decorate([
     (0, common_1.Controller)('analysis'),
-    __metadata("design:paramtypes", [analysis_service_1.AnalysisService])
+    __metadata("design:paramtypes", [analysis_service_1.AnalysisService,
+        auth_service_1.AuthService,
+        analysis_cooldown_service_1.AnalysisCooldownService])
 ], AnalysisController);
 //# sourceMappingURL=analysis.controller.js.map

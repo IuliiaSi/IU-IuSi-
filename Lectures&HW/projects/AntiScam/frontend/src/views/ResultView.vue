@@ -42,7 +42,10 @@
 
       <div class="result__entries">
         <h2 class="result__entries-title">Мои сохраненные entries</h2>
-        <p v-if="store.entries.length === 0" class="result__entries-empty">
+        <p v-if="!store.hasPaidAccess" class="result__entries-empty">
+          История доступна только с подтвержденной оплатой.
+        </p>
+        <p v-else-if="store.entries.length === 0" class="result__entries-empty">
           Записей пока нет.
         </p>
         <div v-else class="result__entries-list">
@@ -83,7 +86,12 @@ const store = useAppStore();
 
 onMounted(async () => {
   await store.fetchCurrentUser();
-  await store.fetchEntries();
+  await store.fetchAccessStatus();
+  if (store.hasPaidAccess) {
+    await store.fetchEntries();
+  } else {
+    store.setEntries([]);
+  }
 });
 
 function onPaywall() {

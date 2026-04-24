@@ -4,6 +4,22 @@
 
 ## Запуск
 
+### Через Replit (рекомендуемый для этого репозитория)
+
+В корне репозитория уже настроен `.replit` под запуск AntiScam как полноценного приложения:
+
+- frontend собирается в `frontend/dist`
+- backend запускается как единый веб-процесс
+- API доступен по `/api/*`
+- SPA отдается тем же процессом на внешнем URL Replit
+
+Перед запуском добавь в Replit Secrets:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+
+После этого нажми **Run**.
+
 ### Через Docker (рекомендуемый)
 
 ```bash
@@ -13,7 +29,8 @@ docker-compose up --build
 После запуска:
 - Frontend: http://localhost:8080
 - Backend API: http://localhost:3000/api
-- MongoDB: localhost:27017
+
+Для backend нужны переменные окружения Supabase (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
 
 ### Локальная разработка
 
@@ -27,7 +44,10 @@ cp .env.example .env
 npm run start:dev
 ```
 
-Требуется MongoDB на `localhost:27017` и переменные Supabase для email/password авторизации.
+Требуются переменные Supabase для email/password авторизации:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 
 **Frontend:**
 
@@ -147,7 +167,7 @@ http://<IP-компьютера>:8080
 
 ```
 ├── docker-compose.yml
-├── backend/           # NestJS + MongoDB
+├── backend/           # NestJS + Supabase
 │   ├── Dockerfile
 │   └── src/
 │       ├── auth/      # Авторизация (Supabase email/password + legacy mock phone)
@@ -255,3 +275,89 @@ for select
 to authenticated
 using (auth.uid() = user_id);
 ```
+
+## Cars (Supabase Table Editor)
+
+Для endpoint'ов `/api/cars` создай таблицу `cars`:
+
+- `id` uuid primary key default gen_random_uuid()
+- `user_id` uuid not null
+- `brand` text not null
+- `model` text not null
+- `year` int not null
+- `mileage` int not null
+- `created_at` timestamptz default now()
+
+`/api/cars` требует Bearer access token.
+
+Рекомендуемый SQL:
+
+```sql
+create extension if not exists pgcrypto;
+
+create table if not exists public.cars (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  brand text not null,
+  model text not null,
+  year int not null,
+  mileage int not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.cars enable row level security;
+
+create policy "cars_insert_own"
+on public.cars
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "cars_select_own"
+on public.cars
+for select
+to authenticated
+using (auth.uid() = user_id);
+```
+
+## Security changes (MVP)
+
+Базовые защитные изменения реализованы без переписывания архитектуры:
+
+- `/success` теперь только информационная страница:
+  - не выдает paid-доступ;
+  - не пишет ничего в Supabase/БД;
+  - показывает текст `Оплата почти завершена`;
+  - содержит кнопку `Вернуться в приложение`.
+- Логика paid-доступа больше не доверяется фронтенду:
+  - добавлен backend endpoint `GET /api/access/me`;
+  - источник правды: таблица `public.user_access` (`paid`, `role`) в Supabase;
+  - клиент не может сам менять `paid/role` через API таблицы;
+  - платная функция (история entries) проверяется на сервере.
+- Добавлена защита от спама:
+  - client-side cooldown 3 секунды на основном действии (ручной анализ);
+  - server-side cooldown 3 секунды на `POST /api/analysis/manual`;
+  - если слишком рано: `Подождите немного`.
+- Перед основным действием теперь требуется подтверждение:
+  - чекбокс `Я не робот` обязателен для ручного анализа;
+  - проверка есть и на сервере (`humanConfirmed === true`).
+- Секреты:
+  - приватные ключи не используются во frontend-коде;
+  - backend использует env (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
+
+### SQL для статуса paid/role
+
+Примените SQL-файл:
+
+- `sql/mvp_security.sql`
+
+Он создаёт таблицу `user_access` и RLS-политики "только свои данные".
+Запись `paid/role` должна обновляться только доверенной серверной логикой (например, webhook/backend job), а не клиентом.
+
+### Manual test checklist
+
+1. Открыть `/success` напрямую — paid-статус не должен измениться.
+2. Попытаться получить paid-доступ без оплаты — доступ должен быть заблокирован.
+3. Быстро нажать основную кнопку 10-20 раз — действие не должно выполняться чаще 1 раза в 3 секунды.
+4. Нажать основное действие без `Я не робот` — действие должно быть заблокировано.
+5. Подтвердить `Я не робот` и выполнить действие — действие должно работать.

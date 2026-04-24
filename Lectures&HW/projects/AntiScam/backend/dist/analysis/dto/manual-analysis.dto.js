@@ -37,4 +37,9 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], ManualAnalysisDto.prototype, "mileage", void 0);
+__decorate([
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.Equals)(true, { message: 'Подтвердите, что вы не робот' }),
+    __metadata("design:type", Boolean)
+], ManualAnalysisDto.prototype, "humanConfirmed", void 0);
 //# sourceMappingURL=manual-analysis.dto.js.map

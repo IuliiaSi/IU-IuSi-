@@ -27,6 +27,11 @@ export interface AppState {
     accessToken: string | null;
     refreshToken: string | null;
   };
+  access: {
+    paid: boolean;
+    role: 'user' | 'admin';
+    loaded: boolean;
+  };
   car: {
     brand: string;
     model: string;
@@ -58,6 +63,11 @@ function createInitialState(): AppState {
       verified: false,
       accessToken: null,
       refreshToken: null,
+    },
+    access: {
+      paid: false,
+      role: 'user',
+      loaded: false,
     },
     car: {
       brand: '',
@@ -98,6 +108,8 @@ export const useAppStore = defineStore('app', {
     selectedJobCount: (state): number => state.selectedJobs.length + state.customJobs.length,
     isAuthenticated: (state): boolean =>
       Boolean(state.auth.verified && state.auth.accessToken && state.auth.refreshToken),
+    hasPaidAccess: (state): boolean => Boolean(state.access.paid),
+    isAdmin: (state): boolean => state.access.role === 'admin',
   },
 
   actions: {
@@ -144,6 +156,9 @@ export const useAppStore = defineStore('app', {
       this.auth.accessToken = null;
       this.auth.refreshToken = null;
       this.auth.verified = false;
+      this.access.paid = false;
+      this.access.role = 'user';
+      this.access.loaded = false;
       this.entries = [];
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -178,6 +193,35 @@ export const useAppStore = defineStore('app', {
       const data = await response.json();
       this.auth.email = data.email || this.auth.email;
       this.auth.verified = true;
+      await this.fetchAccessStatus();
+      return data;
+    },
+
+    async fetchAccessStatus() {
+      if (!this.auth.accessToken) {
+        this.access.paid = false;
+        this.access.role = 'user';
+        this.access.loaded = true;
+        return null;
+      }
+
+      const response = await fetch('/api/access/me', {
+        headers: {
+          ...this.authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        this.access.paid = false;
+        this.access.role = 'user';
+        this.access.loaded = true;
+        return null;
+      }
+
+      const data = await response.json();
+      this.access.paid = Boolean(data?.paid);
+      this.access.role = data?.role === 'admin' ? 'admin' : 'user';
+      this.access.loaded = true;
       return data;
     },
 
