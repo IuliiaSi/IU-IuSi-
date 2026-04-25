@@ -1,4 +1,5 @@
 -- MVP security baseline for paid access and role source of truth.
+-- Полная схема (entries, cars, user_access): `sql/0001_init.sql`.
 
 create table if not exists public.user_access (
   user_id uuid primary key references auth.users(id) on delete cascade,

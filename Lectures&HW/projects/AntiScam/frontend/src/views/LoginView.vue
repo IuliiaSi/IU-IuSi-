@@ -76,6 +76,7 @@ import { useAppStore } from '@/stores/app.store';
 import { productCopy as copy } from '@/data/product-copy';
 import TopBar from '@/components/TopBar.vue';
 import BottomCTA from '@/components/BottomCTA.vue';
+import { isRateLimitedAuthError, mapSupabaseAuthError } from '@/lib/auth-errors';
 import { supabase } from '@/lib/supabase';
 
 const router = useRouter();
@@ -96,8 +97,10 @@ const isPasswordValid = computed(() => password.value.length >= 6);
 const isFormValid = computed(() => isEmailValid.value && isPasswordValid.value);
 const isCooldownActive = computed(() => cooldownMsLeft.value > 0);
 
-function startCooldown() {
-  cooldownMsLeft.value = 3000;
+const RATE_LIMIT_COOLDOWN_MS = 10_000;
+
+function startRateLimitCooldown() {
+  cooldownMsLeft.value = RATE_LIMIT_COOLDOWN_MS;
   if (cooldownTimer) {
     clearInterval(cooldownTimer);
   }
@@ -110,20 +113,10 @@ function startCooldown() {
   }, 250);
 }
 
-function mapAuthErrorMessage(message: string, status?: number) {
-  if (status === 429) {
-    return 'Слишком много попыток. Подождите немного';
-  }
-  if (!message) {
-    return 'Ошибка авторизации.';
-  }
-  return message;
-}
-
 async function onSubmit() {
   if (!isFormValid.value || submitting.value) return;
   if (isCooldownActive.value) {
-    errorMessage.value = 'Подождите немного';
+    errorMessage.value = 'Подождите, пока истечёт таймаут после ограничения по запросам';
     return;
   }
 
@@ -144,8 +137,14 @@ async function onSubmit() {
       });
 
       if (error) {
-        errorMessage.value = mapAuthErrorMessage(error.message, error.status);
-        startCooldown();
+        errorMessage.value = mapSupabaseAuthError({
+          message: error.message,
+          status: error.status,
+          code: (error as { code?: string }).code,
+        });
+        if (isRateLimitedAuthError(error)) {
+          startRateLimitCooldown();
+        }
         return;
       }
 
@@ -161,16 +160,22 @@ async function onSubmit() {
     });
 
     if (error) {
-      errorMessage.value = mapAuthErrorMessage(error.message, error.status);
-      startCooldown();
+      errorMessage.value = mapSupabaseAuthError({
+        message: error.message,
+        status: error.status,
+        code: (error as { code?: string }).code,
+      });
+      if (isRateLimitedAuthError(error)) {
+        startRateLimitCooldown();
+      }
       return;
     }
 
     const accessToken = data.session?.access_token;
     const refreshToken = data.session?.refresh_token;
     if (!accessToken || !refreshToken) {
-      errorMessage.value = 'Не удалось получить токены сессии.';
-      startCooldown();
+      errorMessage.value =
+        'Сессия не открылась (возможно, нужно подтвердить email по письму). Проверьте почту и спам, затем войдите.';
       return;
     }
 
@@ -183,7 +188,6 @@ async function onSubmit() {
     router.push('/car');
   } catch (_error) {
     errorMessage.value = 'Сервер недоступен. Проверьте подключение и повторите.';
-    startCooldown();
   } finally {
     submitting.value = false;
   }
